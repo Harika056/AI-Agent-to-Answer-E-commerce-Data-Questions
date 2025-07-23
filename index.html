@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Ecommerce Agent</title>
+    <!-- Tailwind CSS CDN for quick styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light blue-gray background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 1.5rem; /* More rounded corners */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); /* Softer shadow */
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        input[type="text"] {
+            padding: 1rem 1.25rem;
+            border: 1px solid #cbd5e1; /* Light gray border */
+            border-radius: 0.75rem; /* Rounded input field */
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            width: 100%;
+        }
+        input[type="text"]:focus {
+            border-color: #6366f1; /* Purple on focus */
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); /* Soft focus ring */
+        }
+        button {
+            background-color: #6366f1; /* Purple button */
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+            border: none;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #4f46e5; /* Darker purple on hover */
+            transform: translateY(-2px); /* Slight lift effect */
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        #response-area {
+            background-color: #e2e8f0; /* Lighter gray for response */
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            min-height: 100px;
+            overflow-y: auto;
+            white-space: pre-wrap; /* Preserve whitespace and wrap text */
+            font-family: 'Inter', sans-serif;
+            color: #334155; /* Darker text */
+            font-size: 0.95rem;
+            border: 1px solid #cbd5e1;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05); /* Inner shadow for depth */
+        }
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #6366f1;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: none; /* Hidden by default */
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error-message {
+            color: #ef4444; /* Red for errors */
+            font-weight: 600;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-4">AI Ecommerce Agent</h1>
+        <p class="text-center text-gray-600 mb-6">Ask me questions about sales, eligibility, or ad metrics!</p>
+
+        <input type="text" id="question-input" placeholder="e.g., What is my total sales?" class="w-full">
+        <button id="ask-button">Ask Question</button>
+
+        <div class="loading-spinner" id="loading-spinner"></div>
+
+        <div id="response-area" class="text-gray-700">
+            <p class="text-center text-gray-500">Your answers will appear here.</p>
+        </div>
+    </div>
+
+    <script>
+        const questionInput = document.getElementById('question-input');
+        const askButton = document.getElementById('ask-button');
+        const responseArea = document.getElementById('response-area');
+        const loadingSpinner = document.getElementById('loading-spinner');
+
+        askButton.addEventListener('click', async () => {
+            const question = questionInput.value.trim();
+            if (!question) {
+                responseArea.innerHTML = '<p class="error-message">Please enter a question!</p>';
+                return;
+            }
+
+            responseArea.innerHTML = ''; // Clear previous response
+            loadingSpinner.style.display = 'block'; // Show spinner
+            askButton.disabled = true; // Disable button during request
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ question: question }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) { // Check if HTTP status is 2xx
+                    if (data.answer) {
+                        responseArea.innerHTML = `<p class="font-semibold text-lg mb-2">Answer:</p><pre>${JSON.stringify(data.answer, null, 2)}</pre>`;
+                    } else if (data.error) {
+                        responseArea.innerHTML = `<p class="error-message">Error: ${data.error}</p>`;
+                    } else {
+                        responseArea.innerHTML = '<p class="error-message">Unexpected response from server.</p>';
+                    }
+                } else {
+                    // Handle non-200 responses (e.g., 500 Internal Server Error from FastAPI itself)
+                    responseArea.innerHTML = `<p class="error-message">Server Error (${response.status}): ${data.detail || JSON.stringify(data)}</p>`;
+                }
+
+            } catch (error) {
+                console.error('Fetch error:', error);
+                responseArea.innerHTML = `<p class="error-message">Could not connect to the server. Is the FastAPI backend running?</p>`;
+            } finally {
+                loadingSpinner.style.display = 'none'; // Hide spinner
+                askButton.disabled = false; // Re-enable button
+            }
+        });
+    </script>
+</body>
+</html>
